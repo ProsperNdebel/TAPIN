@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import trends, categories, health, admin, stripe
+from app.api.routes import trends, categories, health, admin, stripe, scraper_admin
+
 from app.tasks.email_scheduler import start_email_scheduler
 import firebase_admin
 from firebase_admin import credentials
@@ -39,6 +40,7 @@ app.include_router(
     prefix="/api",
     tags=["Stripe"]
 )
+app.include_router(scraper_admin.router, prefix="/api", tags=["scraper_admin"])
 
 # Initialize email scheduler on startup
 @app.on_event("startup")

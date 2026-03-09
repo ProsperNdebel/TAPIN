@@ -71,4 +71,55 @@ export const createCheckoutSession = async (uid) => {
   return data;
 };
 
+// Scraper Management Functions
+export const getAllScrapers = async (token) => {
+  const { data } = await api.get("/admin/scrapers", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const createScraper = async (scraperData, token) => {
+  const { data } = await api.post("/admin/scrapers", scraperData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const updateScraper = async (scraperId, scraperData, token) => {
+  const { data } = await api.put(`/admin/scrapers/${scraperId}`, scraperData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const deleteScraper = async (scraperId, token) => {
+  const { data } = await api.delete(`/admin/scrapers/${scraperId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const toggleScraper = async (scraperId, token) => {
+  const { data } = await api.post(
+    `/admin/scrapers/${scraperId}/toggle`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return data;
+};
+
+export const testScraper = async (scraperId, token) => {
+  const { data } = await api.post(
+    `/admin/scrapers/test/${scraperId}`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return data;
+};
+
 export { api };
