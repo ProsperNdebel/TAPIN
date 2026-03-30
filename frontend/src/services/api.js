@@ -5,7 +5,7 @@ let API_URL = import.meta.env.DEV
   : import.meta.env.VITE_API_URL;
 
 API_URL = `${API_URL}/api`;
-
+console.log("this is the api url", API_URL);
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -68,6 +68,57 @@ export const unsubscribeFromEmail = async (email) => {
 // Stripe checkout
 export const createCheckoutSession = async (uid) => {
   const { data } = await api.post("/create-checkout-session", { uid });
+  return data;
+};
+
+// Scraper Management Functions
+export const getAllScrapers = async (token) => {
+  const { data } = await api.get("/admin/scrapers", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const createScraper = async (scraperData, token) => {
+  const { data } = await api.post("/admin/scrapers", scraperData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const updateScraper = async (scraperId, scraperData, token) => {
+  const { data } = await api.put(`/admin/scrapers/${scraperId}`, scraperData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const deleteScraper = async (scraperId, token) => {
+  const { data } = await api.delete(`/admin/scrapers/${scraperId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+};
+
+export const toggleScraper = async (scraperId, token) => {
+  const { data } = await api.post(
+    `/admin/scrapers/${scraperId}/toggle`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return data;
+};
+
+export const testScraper = async (scraperId, token) => {
+  const { data } = await api.post(
+    `/admin/scrapers/test/${scraperId}`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   return data;
 };
 
