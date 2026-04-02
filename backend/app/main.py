@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import trends, categories, health, admin, stripe
 from app.tasks.email_scheduler import start_email_scheduler
+from app.tasks.ai_scheduler import start_ai_scheduler
 import firebase_admin
 from firebase_admin import credentials
 
@@ -50,6 +51,8 @@ async def startup_event():
     try:
         start_email_scheduler()
         print("✅ Email scheduler initialized successfully")
+        print("✅ ai agent scheduler initialized successfully")
+        start_ai_scheduler()
     except Exception as e:
         print(f"⚠️  Failed to initialize email scheduler: {e}")
 
