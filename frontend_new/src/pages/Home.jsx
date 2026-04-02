@@ -204,9 +204,9 @@ export default function Home() {
                   Trending Now
                 </h2>
               </div>
-              <Link to="/?filter=all" className={styles.sectionLink}>
+              <a href="#resources" className={styles.sectionLink}>
                 View all resources →
-              </Link>
+              </a>
             </div>
 
             {trendingLoading ? (
