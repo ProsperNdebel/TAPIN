@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import styles from './ForSchools.module.css'
+import { createCheckoutSession } from '../services/api'
 
 const PLANS = [
   {
@@ -82,6 +83,49 @@ const FAQS = [
 
 export default function ForSchools() {
   const [openFaq, setOpenFaq] = useState(null)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState(null)
+  const [formData, setFormData] = useState({
+    schoolName: '',
+    adminEmail: '',
+  })
+
+  const handleSchoolCheckout = async (e) => {
+    e.preventDefault()
+    setCheckoutLoading(true)
+    setCheckoutError(null)
+
+    try {
+      console.log('Starting checkout with data:', {
+        planType: 'school',
+        schoolName: formData.schoolName,
+        adminEmail: formData.adminEmail,
+      })
+
+      const response = await createCheckoutSession({
+        planType: 'school',
+        schoolName: formData.schoolName,
+        adminEmail: formData.adminEmail,
+      })
+
+      console.log('Checkout response:', response)
+
+      if (!response.url) {
+        throw new Error('No checkout URL returned from backend')
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = response.url
+    } catch (err) {
+      console.error('Stripe checkout failed:', err)
+      const errorMessage = err.message || 'Failed to start checkout. Please try again.'
+      console.error('Full error details:', { message: err.message, status: err.status, body: err.body })
+      setCheckoutError(errorMessage)
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
 
   return (
     <main className={styles.page}>
@@ -168,12 +212,21 @@ export default function ForSchools() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to={plan.ctaLink}
-                  className={`${styles.planCta} ${plan.highlight ? styles.planCtaHighlight : ''}`}
-                >
-                  {plan.cta}
-                </Link>
+                {plan.name === 'School' ? (
+                  <button
+                    onClick={() => setShowCheckoutModal(true)}
+                    className={`${styles.planCta} ${plan.highlight ? styles.planCtaHighlight : ''}`}
+                  >
+                    {plan.cta}
+                  </button>
+                ) : (
+                  <Link
+                    to={plan.ctaLink}
+                    className={`${styles.planCta} ${plan.highlight ? styles.planCtaHighlight : ''}`}
+                  >
+                    {plan.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
@@ -221,6 +274,70 @@ export default function ForSchools() {
           </div>
         </div>
       </section>
+
+      {/* ── School Checkout Modal ── */}
+      {showCheckoutModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowCheckoutModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button
+              className={styles.modalClose}
+              onClick={() => setShowCheckoutModal(false)}
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+
+            <div className={styles.modalHeader}>
+              <h2>Get Started with TrendWise for Schools</h2>
+              <p>$299/year for your entire school</p>
+            </div>
+
+            <form onSubmit={handleSchoolCheckout} className={styles.checkoutForm}>
+              <div className={styles.formGroup}>
+                <label htmlFor="schoolName">School Name *</label>
+                <input
+                  type="text"
+                  id="schoolName"
+                  placeholder="Your School Name"
+                  value={formData.schoolName}
+                  onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
+                  required
+                  disabled={checkoutLoading}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="adminEmail">Admin Email *</label>
+                <input
+                  type="email"
+                  id="adminEmail"
+                  placeholder="admin@yourschool.edu"
+                  value={formData.adminEmail}
+                  onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+                  required
+                  disabled={checkoutLoading}
+                />
+              </div>
+
+              {checkoutError && (
+                <p className={styles.errorMessage}>{checkoutError}</p>
+              )}
+
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={checkoutLoading || !formData.schoolName || !formData.adminEmail}
+              >
+                {checkoutLoading ? 'Processing...' : 'Proceed to Checkout'}
+              </button>
+
+              <p className={styles.formNote}>
+                You'll be redirected to Stripe to complete your secure payment.
+              </p>
+            </form>
+          </div>
+        </div>
+      )}
 
     </main>
   )

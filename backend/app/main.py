@@ -36,7 +36,7 @@ app.include_router(trends.router, prefix="/api", tags=["Trends"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"]) 
 app.include_router(
     stripe.router,
-    prefix="/api",
+    prefix="/api/stripe",
     tags=["Stripe"]
 )
 
