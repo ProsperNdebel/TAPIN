@@ -124,6 +124,14 @@
   color: #fff;
 }
 
+.userWelcome {
+  padding: 7px 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
 .navLinkHighlight {
   padding: 7px 16px;
   border-radius: var(--radius-md);

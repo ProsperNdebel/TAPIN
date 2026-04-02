@@ -82,7 +82,9 @@ export default function Navbar({ onOpenSignIn }) {
           {user ? (
             // ── Logged-in state ──
             <>
-              <span className={styles.userEmail}>{user.email}</span>
+              <span className={styles.userWelcome}>
+                Welcome, {user.name ? user.name.split(' ')[0] : 'User'}
+              </span>
               <button
                 className={styles.navLinkHighlight}
                 onClick={handleLogout}

@@ -23,7 +23,7 @@ app = FastAPI(
 # CORS middleware (allows frontend to call API)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tapinpointo.netlify.app"],
+    allow_origins=["https://tapinpointo.netlify.app", "http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,7 +36,7 @@ app.include_router(trends.router, prefix="/api", tags=["Trends"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"]) 
 app.include_router(
     stripe.router,
-    prefix="/api",
+    prefix="/api/stripe",
     tags=["Stripe"]
 )
 

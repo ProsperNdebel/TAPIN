@@ -76,3 +76,17 @@ export function getCategories() {
 export function getPlatforms() {
   return request('/platforms')
 }
+
+// ─── Stripe Payments ───────────────────────────────────────────────────────
+
+/**
+ * Create a Stripe checkout session for school or other paid plans.
+ * @param {{ planType: string, schoolName?: string, adminEmail?: string, uid?: string }} options
+ * @returns {Promise<{ url: string }>}
+ */
+export function createCheckoutSession(options = {}) {
+  return request('/stripe/create-checkout-session', {
+    method: 'POST',
+    body: JSON.stringify(options),
+  })
+}
