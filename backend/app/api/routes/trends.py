@@ -1,9 +1,14 @@
+# backend/app/api/routes/trends.py
+
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from app.core.database import SessionLocal
 from app.models.raw_data import RawData
+from app.models.trend import Trend
+from app.models.category import Category
 from datetime import datetime, timedelta
 from firebase_admin import auth, firestore
 
@@ -17,63 +22,189 @@ def get_db():
         db.close()
 
 
-@router.get("/trends/weekly")
-def get_weekly_trends(db: Session = Depends(get_db)):
-    """Get current week's trending topics from scraped data"""
+# ============================================================================
+# AI-CURATED TRENDS ENDPOINTS (Use these!)
+# ============================================================================
+
+@router.get("/trends")
+async def get_all_trends(
+    category: str = None,
+    search: str = None,
+    db: Session = Depends(get_db)
+):
+    """Get AI-curated trends from the trends table"""
     
-    raw_data = db.query(RawData).order_by(
-        RawData.collected_at.desc()
-    ).limit(50).all()
+    query = db.query(Trend).join(Category, Trend.category_id == Category.id, isouter=True)
     
-    if not raw_data:
-        return {
-            "week_start": datetime.utcnow().strftime("%Y-%m-%d"),
-            "week_end": datetime.utcnow().strftime("%Y-%m-%d"),
-            "trends": []
-        }
+    # Filter by category
+    if category and category != 'All':
+        query = query.filter(Category.name == category)
     
-    trends = []
-    trend_id = 1
+    # Filter by search
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Trend.title.ilike(search_term),
+                Trend.description.ilike(search_term)
+            )
+        )
     
-    for item in raw_data[:20]:
-        trend = format_raw_data_as_trend(item, trend_id)
-        if trend:
-            trends.append(trend)
-            trend_id += 1
+    # Get trends ordered by relevance
+    trends = query.order_by(
+        Trend.relevance_score.desc(),
+        Trend.created_at.desc()
+    ).limit(20).all()
     
     return {
-        "week_start": (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d"),
-        "week_end": datetime.utcnow().strftime("%Y-%m-%d"),
-        "trends": trends
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "why_it_matters": t.why_it_matters,
+                "how_to_talk_about_it": t.how_to_talk_about_it,
+                "category": {"name": t.category.name} if t.category else None,
+                "relevance_score": t.relevance_score,
+                "sources": t.sources,
+                "week_start": t.week_start,
+                "week_end": t.week_end,
+                "created_at": t.created_at
+            }
+            for t in trends
+        ]
+    }
+
+
+@router.get("/trends/weekly")
+async def get_weekly_trends_curated(db: Session = Depends(get_db)):
+    """Get this week's AI-curated trends"""
+    
+    week_start = datetime.utcnow() - timedelta(days=7)
+    
+    trends = db.query(Trend).join(
+        Category, Trend.category_id == Category.id, isouter=True
+    ).filter(
+        Trend.week_start >= week_start
+    ).order_by(
+        Trend.relevance_score.desc()
+    ).limit(10).all()
+    
+    return {
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "why_it_matters": t.why_it_matters,
+                "how_to_talk_about_it": t.how_to_talk_about_it,
+                "category": {"name": t.category.name} if t.category else None,
+                "relevance_score": t.relevance_score,
+                "sources": t.sources,
+                "week_start": t.week_start,
+                "week_end": t.week_end,
+                "created_at": t.created_at
+            }
+            for t in trends
+        ]
+    }
+
+
+@router.get("/trends/{trend_id}")
+async def get_trend_by_id(trend_id: int, db: Session = Depends(get_db)):
+    """Get detailed information about a specific trend"""
+    
+    trend = db.query(Trend).join(
+        Category, Trend.category_id == Category.id, isouter=True
+    ).filter(Trend.id == trend_id).first()
+    
+    if not trend:
+        raise HTTPException(status_code=404, detail="Trend not found")
+    
+    return {
+        "id": trend.id,
+        "title": trend.title,
+        "description": trend.description,
+        "why_it_matters": trend.why_it_matters,
+        "how_to_talk_about_it": trend.how_to_talk_about_it,
+        "category": {"name": trend.category.name} if trend.category else None,
+        "relevance_score": trend.relevance_score,
+        "sources": trend.sources,
+        "week_start": trend.week_start,
+        "week_end": trend.week_end,
+        "created_at": trend.created_at
+    }
+
+
+@router.get("/trends/category/{category}")
+async def get_trends_by_category(category: str, db: Session = Depends(get_db)):
+    """Get AI-curated trends filtered by category"""
+    
+    trends = db.query(Trend).join(
+        Category, Trend.category_id == Category.id
+    ).filter(
+        Category.name.ilike(category)
+    ).order_by(
+        Trend.relevance_score.desc()
+    ).limit(20).all()
+    
+    return {
+        "category": category,
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "why_it_matters": t.why_it_matters,
+                "how_to_talk_about_it": t.how_to_talk_about_it,
+                "category": {"name": t.category.name} if t.category else None,
+                "relevance_score": t.relevance_score,
+                "sources": t.sources,
+                "week_start": t.week_start,
+                "week_end": t.week_end,
+                "created_at": t.created_at
+            }
+            for t in trends
+        ]
     }
 
 
 @router.get("/trends/archive")
-def get_archive(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
-    """Get archive of past data"""
+async def get_archive(db: Session = Depends(get_db), page: int = 1, limit: int = 10):
+    """Get archive of past AI-curated trends"""
     
     offset = (page - 1) * limit
     
-    raw_data = db.query(RawData).order_by(
-        RawData.collected_at.desc()
+    trends = db.query(Trend).join(
+        Category, Trend.category_id == Category.id, isouter=True
+    ).order_by(
+        Trend.created_at.desc()
     ).offset(offset).limit(limit).all()
     
-    trends = []
-    for idx, item in enumerate(raw_data, start=offset + 1):
-        trend = format_raw_data_as_trend(item, idx)
-        if trend:
-            trends.append(trend)
+    total = db.query(Trend).count()
     
     return {
         "page": page,
-        "total_pages": 1,
-        "trends": trends
+        "total_pages": (total + limit - 1) // limit,
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "category": {"name": t.category.name} if t.category else None,
+                "relevance_score": t.relevance_score,
+                "week_start": t.week_start,
+                "week_end": t.week_end,
+                "created_at": t.created_at
+            }
+            for t in trends
+        ]
     }
 
 
 @router.get("/trends/archive/{week_start}")
-def get_archive_week(week_start: str, db: Session = Depends(get_db)):
-    """Get trends for a specific week"""
+async def get_archive_week(week_start: str, db: Session = Depends(get_db)):
+    """Get AI-curated trends for a specific week"""
     
     try:
         start_date = datetime.strptime(week_start, "%Y-%m-%d")
@@ -81,174 +212,41 @@ def get_archive_week(week_start: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
-    raw_data = db.query(RawData).filter(
-        RawData.collected_at >= start_date,
-        RawData.collected_at < end_date
-    ).limit(20).all()
-    
-    trends = []
-    for idx, item in enumerate(raw_data, 1):
-        trend = format_raw_data_as_trend(item, idx)
-        if trend:
-            trends.append(trend)
+    trends = db.query(Trend).join(
+        Category, Trend.category_id == Category.id, isouter=True
+    ).filter(
+        Trend.week_start >= start_date,
+        Trend.week_start < end_date
+    ).order_by(
+        Trend.relevance_score.desc()
+    ).all()
     
     return {
         "week_start": week_start,
         "week_end": end_date.strftime("%Y-%m-%d"),
         "trend_count": len(trends),
-        "trends": trends
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "why_it_matters": t.why_it_matters,
+                "how_to_talk_about_it": t.how_to_talk_about_it,
+                "category": {"name": t.category.name} if t.category else None,
+                "relevance_score": t.relevance_score,
+                "sources": t.sources,
+                "week_start": t.week_start,
+                "week_end": t.week_end,
+                "created_at": t.created_at
+            }
+            for t in trends
+        ]
     }
 
 
-@router.get("/trends/category/{category}")
-def get_trends_by_category(category: str, db: Session = Depends(get_db)):
-    """Get trends filtered by category"""
-    
-    source_map = {
-        "slang": "urban_dictionary",
-        "reddit": "reddit",
-        "youtube": "youtube",
-        "news": ["buzzfeed", "complex", "thecut", "refinery29"],
-        "trending": "google_trends"
-    }
-    
-    source = source_map.get(category.lower())
-    
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Unknown category: {category}")
-    
-    if isinstance(source, list):
-        raw_data = db.query(RawData).filter(RawData.source.in_(source)).limit(20).all()
-    else:
-        raw_data = db.query(RawData).filter(RawData.source == source).limit(20).all()
-    
-    if not raw_data:
-        return {
-            "category": category,
-            "trends": []
-        }
-    
-    trends = []
-    for idx, item in enumerate(raw_data, 1):
-        trend = format_raw_data_as_trend(item, idx)
-        if trend:
-            trends.append(trend)
-    
-    return {
-        "category": category,
-        "trends": trends
-    }
-
-
-@router.get("/trends/{trend_id}")
-def get_trend_by_id(trend_id: int, db: Session = Depends(get_db)):
-    """Get detailed information about a specific trend"""
-    
-    raw_data = db.query(RawData).filter(RawData.id == trend_id).first()
-    
-    if not raw_data:
-        raise HTTPException(status_code=404, detail="Trend not found")
-    
-    trend = format_raw_data_as_trend(raw_data, trend_id)
-    return trend
-
-
-def format_raw_data_as_trend(raw_data: RawData, trend_id: int):
-    """Convert raw_data to trend format"""
-    
-    if raw_data.source == "urban_dictionary":
-        return {
-            "id": trend_id,
-            "type": "slang",
-            "title": raw_data.extra_data.get("word", "Unknown"),
-            "category": "Slang",
-            "description": raw_data.extra_data.get("definition", raw_data.content)[:200],
-            "relevance_score": 0.85,
-            "source": raw_data.source,
-            "source_links": [raw_data.url] if raw_data.url else [],
-            "example_usage": [raw_data.extra_data.get("example", "")],
-            "upvotes": raw_data.extra_data.get("upvotes", "0"),
-            "created_at": raw_data.collected_at.isoformat()
-        }
-    
-    elif raw_data.source == "reddit":
-        return {
-            "id": trend_id,
-            "type": "post",
-            "title": raw_data.content[:100],
-            "category": "Reddit",
-            "description": raw_data.content,
-            "relevance_score": 0.80,
-            "source": raw_data.source,
-            "source_links": [raw_data.url] if raw_data.url else [],
-            "subreddit": raw_data.extra_data.get("subreddit", "unknown"),
-            "upvotes": raw_data.extra_data.get("score", "0"),
-            "comments": raw_data.extra_data.get("comments", "0"),
-            "created_at": raw_data.collected_at.isoformat()
-        }
-    
-    elif raw_data.source == "youtube":
-        title_parts = raw_data.content.split('\n')
-        title = title_parts[0] if title_parts else "Unknown"
-        
-        return {
-            "id": trend_id,
-            "type": "video",
-            "title": title[:100],
-            "category": "YouTube",
-            "description": raw_data.content,
-            "relevance_score": 0.88,
-            "source": raw_data.source,
-            "source_links": [raw_data.url] if raw_data.url else [],
-            "channel": raw_data.extra_data.get("channel_title", "Unknown"),
-            "views": raw_data.extra_data.get("views", 0),
-            "likes": raw_data.extra_data.get("likes", 0),
-            "created_at": raw_data.collected_at.isoformat()
-        }
-    
-    elif raw_data.source in ["buzzfeed", "complex", "thecut", "refinery29"]:
-        title = raw_data.content[:80]
-        if len(raw_data.content) > 80:
-            title += "..."
-        
-        return {
-            "id": trend_id,
-            "type": "article",
-            "title": title,
-            "category": "News",
-            "description": raw_data.content,
-            "relevance_score": 0.75,
-            "source": raw_data.source,
-            "source_links": [raw_data.url] if raw_data.url else [],
-            "created_at": raw_data.collected_at.isoformat()
-        }
-    
-    elif raw_data.source == "google_trends":
-        return {
-            "id": trend_id,
-            "type": "keyword",
-            "title": raw_data.content,
-            "category": "Trending",
-            "description": f"Search interest: {raw_data.extra_data.get('avg_interest_score', 0)}/100",
-            "relevance_score": raw_data.extra_data.get('avg_interest_score', 0) / 100,
-            "source": raw_data.source,
-            "interest_score": raw_data.extra_data.get('avg_interest_score', 0),
-            "created_at": raw_data.collected_at.isoformat()
-        }
-    
-    else:
-        return {
-            "id": trend_id,
-            "type": "general",
-            "title": raw_data.content[:100],
-            "category": "General",
-            "description": raw_data.content,
-            "relevance_score": 0.70,
-            "source": raw_data.source,
-            "source_links": [raw_data.url] if raw_data.url else [],
-            "created_at": raw_data.collected_at.isoformat()
-        }
-
+# ============================================================================
+# EMAIL SUBSCRIPTION ENDPOINTS
+# ============================================================================
 
 class EmailSubscriptionRequest(BaseModel):
     email: str
@@ -272,17 +270,20 @@ def subscribe_to_email_digest(request: EmailSubscriptionRequest):
             break
         
         if not user_found:
-            raise HTTPException(status_code=404, detail="User not found. Please sign up first.")
+            # Create new subscriber
+            firestore_db.collection('users').add({
+                'email': request.email,
+                'email_notifications': request.subscribe,
+                'created_at': firestore.SERVER_TIMESTAMP
+            })
         
         status = "subscribed" if request.subscribe else "unsubscribed"
         return {
             "success": True,
-            "message": f"Successfully {status} from email digest",
+            "message": f"Successfully {status} to email digest",
             "email": request.email,
             "email_notifications": request.subscribe
         }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

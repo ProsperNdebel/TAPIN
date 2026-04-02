@@ -1,17 +1,36 @@
-import { Link } from 'react-router-dom'
-import styles from './ArticleCard.module.css'
+// frontend_new/src/components/ArticleCard.jsx
+
+import { Link } from "react-router-dom";
+import styles from "./ArticleCard.module.css";
 
 function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export default function ArticleCard({ article, featured = false, style }) {
-  const { slug, title, excerpt, tags = [], readTime, publishedAt, imageUrl } = article
+  // Updated to match backend data structure
+  const {
+    id,
+    slug = id, // Use id as slug if slug doesn't exist
+    title,
+    description,
+    excerpt = description?.substring(0, 150) + "...", // Create excerpt from description
+    category,
+    platform,
+    tags = [category, platform].filter(Boolean), // Create tags from category & platform
+    readTime,
+    date, // Changed from publishedAt
+    publishedAt = date, // Fallback
+    imageUrl,
+  } = article;
 
   return (
     <Link
       to={`/articles/${slug}`}
-      className={`${styles.card} ${featured ? styles.featured : ''}`}
+      className={`${styles.card} ${featured ? styles.featured : ""}`}
       style={style}
     >
       <div className={styles.image}>
@@ -21,9 +40,28 @@ export default function ArticleCard({ article, featured = false, style }) {
           <div className={styles.placeholder} aria-hidden="true">
             <div className={styles.placeholderInner}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <rect x="2" y="6" width="28" height="20" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                <circle cx="10" cy="13" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M2 22L10 16L16 20L22 14L30 22" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <rect
+                  x="2"
+                  y="6"
+                  width="28"
+                  height="20"
+                  rx="3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <circle
+                  cx="10"
+                  cy="13"
+                  r="2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M2 22L10 16L16 20L22 14L30 22"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
               </svg>
               <span className={styles.placeholderText}>Resource</span>
             </div>
@@ -34,9 +72,15 @@ export default function ArticleCard({ article, featured = false, style }) {
       <div className={styles.body}>
         {tags.length > 0 && (
           <div className={styles.tags} aria-label="Tags">
-            {tags.map(tag => (
-              <span key={tag} className={styles.tag}>{tag}</span>
-            ))}
+            {tags.slice(0, 2).map(
+              (
+                tag, // Limit to 2 tags
+              ) => (
+                <span key={tag} className={styles.tag}>
+                  {tag}
+                </span>
+              ),
+            )}
           </div>
         )}
 
@@ -46,27 +90,69 @@ export default function ArticleCard({ article, featured = false, style }) {
         <div className={styles.footer}>
           <div className={styles.meta}>
             <span className={styles.metaItem}>
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-                <rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M4 1V3M9 1V3M1 5H12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                aria-hidden="true"
+              >
+                <rect
+                  x="1"
+                  y="2"
+                  width="11"
+                  height="10"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                />
+                <path
+                  d="M4 1V3M9 1V3M1 5H12"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
               </svg>
-              {formatDate(publishedAt)}
+              {publishedAt}
             </span>
             <span className={styles.metaItem}>
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M6.5 3.5V6.5L8.5 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="6.5"
+                  cy="6.5"
+                  r="5"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                />
+                <path
+                  d="M6.5 3.5V6.5L8.5 8.5"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
               </svg>
-              {readTime} min read
+              {readTime}
             </span>
           </div>
           <span className={styles.cardArrow} aria-hidden="true">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 7H12M8 3L12 7L8 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              <path
+                d="M2 7H12M8 3L12 7L8 11"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </span>
         </div>
       </div>
     </Link>
-  )
+  );
 }

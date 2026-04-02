@@ -22,39 +22,13 @@ const api = axios.create({
 // ============================================================================
 
 /**
- * Get weekly trends (for homepage "Trending Now")
+ * Get all trends/articles with filters (no pagination for now)
  */
-export const getWeeklyTrends = async () => {
-  const { data } = await api.get("/trends/weekly");
-  return data.trends || [];
-};
-
-/**
- * Get trending articles (alias for compatibility with new frontend)
- */
-export const getTrendingArticles = async (limit = 3) => {
-  const { data } = await api.get("/trends/weekly");
-  return (data.trends || []).slice(0, limit);
-};
-
-/**
- * Get all trends/articles with filters
- * Supports both old and new frontend parameter names
- */
-export const getArticles = async ({
-  category,
-  platform,
-  search,
-  page = 1,
-  limit = 20,
-} = {}) => {
+export const getArticles = async ({ category, search } = {}) => {
   const params = new URLSearchParams();
 
-  if (category) params.append("category", category);
-  if (platform) params.append("platform", platform);
+  if (category && category !== "All") params.append("category", category);
   if (search) params.append("search", search);
-  if (page) params.append("page", page);
-  if (limit) params.append("limit", limit);
 
   const queryString = params.toString();
   const endpoint = queryString ? `/trends?${queryString}` : "/trends";
@@ -64,10 +38,26 @@ export const getArticles = async ({
 };
 
 /**
- * Get single trend/article by ID or slug
+ * Get weekly trends (for homepage "Trending Now")
  */
-export const getArticle = async (idOrSlug) => {
-  const { data } = await api.get(`/trends/${idOrSlug}`);
+export const getWeeklyTrends = async () => {
+  const { data } = await api.get("/trends/weekly");
+  return data.trends || [];
+};
+
+/**
+ * Get trending articles (alias for compatibility)
+ */
+export const getTrendingArticles = async (limit = 3) => {
+  const { data } = await api.get("/trends/weekly");
+  return (data.trends || []).slice(0, limit);
+};
+
+/**
+ * Get single trend/article by ID
+ */
+export const getArticle = async (id) => {
+  const { data } = await api.get(`/trends/${id}`);
   return data;
 };
 
@@ -85,7 +75,7 @@ export const getTrendsByCategory = async (category) => {
 };
 
 /**
- * Search articles (full-text search)
+ * Search articles
  */
 export const searchArticles = async (query) => {
   const { data } = await api.get(`/trends?search=${encodeURIComponent(query)}`);
@@ -96,21 +86,13 @@ export const searchArticles = async (query) => {
 // CATEGORIES & PLATFORMS
 // ============================================================================
 
-/**
- * Get all categories
- */
 export const getCategories = async () => {
   const { data } = await api.get("/categories");
   return data.categories || [];
 };
 
-/**
- * Get all platforms (derived from trends)
- * Note: This might need a backend endpoint if you want to filter by platform
- */
 export const getPlatforms = async () => {
-  // For now, return static list
-  // TODO: Add backend endpoint to get platforms from scraped data
+  // Static list for now
   return [
     "TikTok",
     "Instagram",
