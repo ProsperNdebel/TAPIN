@@ -7,9 +7,11 @@ import ArticleCardSkeleton from "../components/ArticleCardSkeleton.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import NewsletterSignup from "../components/NewsletterSignup.jsx";
 import { useArticles } from "../hooks/useArticles.js";
-import { getWeeklyTrends, getCategories } from "../services/api.js"; // ← Import real API
-import { PLATFORMS } from "../services/mockData.js"; // Keep platforms for now
+import { getWeeklyTrends, getCategories } from "../services/api.js";
+import { MOCK_TRENDING, CATEGORIES, PLATFORMS } from "../services/mockData.js";
 import styles from "./Home.module.css";
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false"; // ← Check environment variable
 
 const STATS = [
   { value: "200+", label: "Schools using Trendwise" },
@@ -22,43 +24,50 @@ export default function Home() {
   const [searchParams] = useSearchParams();
   const [category, setCategory] = useState("All");
   const [platform, setPlatform] = useState("All");
-  const [categories, setCategories] = useState(["All"]); // ← Dynamic categories
-  const [trendingArticles, setTrendingArticles] = useState([]); // ← Trending from API
-  const [trendingLoading, setTrendingLoading] = useState(true); // ← Loading state
+  const [categories, setCategories] = useState(["All"]);
+  const [trendingArticles, setTrendingArticles] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
 
   const searchQuery = searchParams.get("search") || "";
 
-  // Load categories from backend
+  // Load categories (mock or real based on USE_MOCK)
   useEffect(() => {
     const fetchCategories = async () => {
+      if (USE_MOCK) {
+        // Use mock categories
+        setCategories(CATEGORIES);
+        return;
+      }
+
+      // Use real API
       try {
         const cats = await getCategories();
         setCategories(["All", ...cats.map((c) => c.name)]);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
-        // Fallback to static categories if API fails
-        setCategories([
-          "All",
-          "Slang",
-          "Social Media",
-          "Gaming",
-          "Music",
-          "Technology",
-        ]);
+        setCategories(CATEGORIES); // Fallback to mock
       }
     };
 
     fetchCategories();
   }, []);
 
-  // Load trending articles from backend
+  // Load trending articles (mock or real based on USE_MOCK)
   useEffect(() => {
     const fetchTrending = async () => {
+      if (USE_MOCK) {
+        // Use mock data
+        await new Promise((r) => setTimeout(r, 400)); // Simulate network delay
+        setTrendingArticles(MOCK_TRENDING);
+        setTrendingLoading(false);
+        return;
+      }
+
+      // Use real API
       try {
         setTrendingLoading(true);
         const trends = await getWeeklyTrends();
 
-        // Take top 3 by relevance score
         const topTrends = trends
           .sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
           .slice(0, 3);
@@ -66,6 +75,7 @@ export default function Home() {
         setTrendingArticles(topTrends);
       } catch (err) {
         console.error("Failed to fetch trending:", err);
+        setTrendingArticles(MOCK_TRENDING); // Fallback to mock
       } finally {
         setTrendingLoading(false);
       }
@@ -192,7 +202,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Trending ── NOW USING REAL DATA */}
+          {/* ── Trending ── USES MOCK OR REAL BASED ON ENV */}
           <section
             className={styles.section}
             aria-labelledby="trending-heading"
@@ -204,9 +214,9 @@ export default function Home() {
                   Trending Now
                 </h2>
               </div>
-              <Link to="/?filter=all" className={styles.sectionLink}>
+              <a href="#resources" className={styles.sectionLink}>
                 View all resources →
-              </Link>
+              </a>
             </div>
 
             {trendingLoading ? (
@@ -252,7 +262,7 @@ export default function Home() {
             <div className={styles.filtersGroup}>
               <FilterBar
                 label="Category"
-                options={categories} // ← Now dynamic from API
+                options={categories}
                 active={category}
                 onChange={setCategory}
               />
