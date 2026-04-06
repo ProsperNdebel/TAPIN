@@ -1,7 +1,3 @@
-"""
-Email scheduler for sending weekly digest emails to subscribers
-Sends emails every week on Friday
-"""
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta
@@ -15,7 +11,6 @@ scheduler = BackgroundScheduler()
 
 
 def get_weekly_trends_data(db: Session):
-    """Get this week's trending data from the database"""
     from app.api.routes.trends import format_raw_data_as_trend
     
     # Get data from the last 7 days
@@ -48,7 +43,6 @@ def get_weekly_trends_data(db: Session):
 
 
 def get_email_subscribers():
-    """Get all users who are subscribed to emails from Firestore"""
     try:
         db = firestore.client()
         
@@ -73,7 +67,6 @@ def get_email_subscribers():
 
 
 def send_weekly_digest_emails():
-    """Send weekly digest emails to all subscribed users"""
     sql_db = SessionLocal()
     try:
         print(f"\n📧 Starting weekly digest email send at {datetime.utcnow().isoformat()}")
@@ -136,7 +129,7 @@ def start_email_scheduler():
         # Schedule to run every Friday at 9 AM UTC
         scheduler.add_job(
             send_weekly_digest_emails,
-            CronTrigger(hour=9, minute=0, day_of_week='fri'),
+            CronTrigger(hour=6, minute=0, day_of_week='fri'),
             id='weekly_digest_email',
             name='Send weekly digest emails',
             replace_existing=True,
